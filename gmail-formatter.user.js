@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      2.1
-// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל תפריט הגדרות מוסתר ודיסקרטי
+// @version      2.2
+// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל חלון הגדרות מובנה ומוצמד
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
 // @downloadURL  https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
@@ -30,48 +30,108 @@
             // כפתור הקסם המרכזי
             const aiBtn = document.createElement('div');
             aiBtn.style.cssText = 'display: inline-block; cursor: pointer; padding: 0 4px; vertical-align: middle;';
-            aiBtn.title = 'עיצוב אימייל אוטומטי באמצעות AI (לחץ לעיצוב)';
+            aiBtn.title = 'עיצוב אימייל אוטומטי באמצעות AI';
             aiBtn.innerHTML = `<div class="J-J5-Ji" style="padding: 4px; display: flex; align-items: center; justify-content: center;" aria-label="עיצוב AI">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #5f6368; pointer-events: none;">
                     <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29c-.39-.39-1.02-.39-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05c.39-.39.39-1.02 0-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
                 </svg>
             </div>`;
 
-            // חץ קטן ועדין בצמוד לכפתור עבור הגדרות
+            // חץ קטן לפתיחת חלון ההגדרות המוצמד
             const dropdownBtn = document.createElement('span');
             dropdownBtn.innerHTML = '▾';
-            dropdownBtn.title = 'הגדרות תוסף (מפתח API, דיוק ומהירות)';
-            dropdownBtn.style.cssText = 'cursor: pointer; font-size: 10px; color: #5f6368; padding: 0 2px; vertical-align: middle; user-select: none; opacity: 0.7;';
+            dropdownBtn.title = 'הגדרות תוסף';
+            dropdownBtn.style.cssText = 'cursor: pointer; font-size: 10px; color: #5f6368; padding: 0 3px; vertical-align: middle; user-select: none; opacity: 0.7;';
 
-            // פתיחת תפריט ההגדרות בלחיצה על החץ
+            // יצירת חלון ההגדרות המוצמד (Popup)
+            const popup = document.createElement('div');
+            popup.style.cssText = 'display: none; position: absolute; bottom: 30px; right: 0; background: #ffffff; border: 1px solid #dadce0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px; padding: 12px; z-index: 9999; width: 240px; font-family: Arial, sans-serif; font-size: 12px; color: #3c4043; text-align: right; direction: rtl;';
+            
+            popup.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>הגדרות מעצב AI</span>
+                    <span class="close-popup" style="cursor: pointer; font-size: 14px; color: #5f6368;">✕</span>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 2px; color: #5f6368;">מפתח API:</label>
+                    <input type="password" class="api-input" style="width: 100%; padding: 4px; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box;" placeholder="הכנס מפתח חדש">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="display: block; margin-bottom: 2px; color: #5f6368;">רמת דיוק:</label>
+                    <select class="mode-select" style="width: 100%; padding: 4px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
+                        <option value="strict">מדויק וצמוד למקור (קפדני)</option>
+                        <option value="creative">משוחרר ויצירתי יותר</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 2px; color: #5f6368;">מהירות עיבוד:</label>
+                    <select class="speed-select" style="width: 100%; padding: 4px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
+                        <option value="fast">מהיר במיוחד (Flash)</option>
+                        <option value="standard">סטנדרטי</option>
+                    </select>
+                </div>
+                <button class="save-settings" style="width: 100%; background: #1a73e8; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: bold;">שמור הגדרות</button>
+            `;
+
+            wrapper.appendChild(aiBtn);
+            wrapper.appendChild(dropdownBtn);
+            wrapper.appendChild(popup);
+
+            // פתיחה/סגירה של החלון בלחיצה על החץ
             dropdownBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
-                const currentKey = GM_getValue('gemini_api_key', '');
-                const currentMode = GM_getValue('gemini_mode', 'strict');
-                const currentSpeed = GM_getValue('gemini_speed', 'fast');
-
-                const newKey = prompt('הכנס מפתח API חדש (השאר ריק כדי לא לשנות):', currentKey);
-                if (newKey !== null && newKey.trim() !== '') {
-                    GM_setValue('gemini_api_key', newKey.trim());
+                const isVisible = popup.style.display === 'block';
+                if (!isVisible) {
+                    // טעינת הנתונים הקיימים לתוך השדות לפני הפתיחה
+                    popup.querySelector('.api-input').value = GM_getValue('gemini_api_key', '');
+                    popup.querySelector('.mode-select').value = GM_getValue('gemini_mode', 'strict');
+                    popup.querySelector('.speed-select').value = GM_getValue('gemini_speed', 'fast');
+                    popup.style.display = 'block';
+                } else {
+                    popup.style.display = 'none';
                 }
+            });
 
-                const modeChoice = prompt('בחר רמת דיוק וניסוח:\n1 - מדויק וצמוד למקור (קפדני)\n2 - משוחרר ויצירתי יותר', currentMode === 'strict' ? '1' : '2');
-                if (modeChoice === '1') GM_setValue('gemini_mode', 'strict');
-                if (modeChoice === '2') GM_setValue('gemini_mode', 'creative');
+            // סגירת החלון בלחיצה על ה-X
+            popup.querySelector('.close-popup').addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                popup.style.display = 'none';
+            });
 
-                const speedChoice = prompt('בחר מהירות עיבוד:\n1 - מהיר במיוחד (Flash)\n2 - סטנדרטי', currentSpeed === 'fast' ? '1' : '2');
-                if (speedChoice === '1') GM_setValue('gemini_speed', 'fast');
-                if (speedChoice === '2') GM_setValue('gemini_speed', 'standard');
+            // שמירת ההגדרות מתוך החלון
+            popup.querySelector('.save-settings').addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
 
+                const newKey = popup.querySelector('.api-input').value.trim();
+                const newMode = popup.querySelector('.mode-select').value;
+                const newSpeed = popup.querySelector('.speed-select').value;
+
+                if (newKey !== '') {
+                    GM_setValue('gemini_api_key', newKey);
+                }
+                GM_setValue('gemini_mode', newMode);
+                GM_setValue('gemini_speed', newSpeed);
+
+                popup.style.display = 'none';
                 alert('ההגדרות נשמרו בהצלחה!');
+            });
+
+            // סגירת החלון בלחיצה מחוץ לו
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    popup.style.display = 'none';
+                }
             });
 
             // הפעלת העיצוב בלחיצה על כפתור הקסם
             aiBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                popup.style.display = 'none';
 
                 const composeWindow = toolbar.closest('div.AD, div.M9');
                 const editableArea = composeWindow ? composeWindow.querySelector('div[contenteditable="true"]') : document.querySelector('div[contenteditable="true"]');
@@ -89,16 +149,15 @@
 
                 let apiKey = GM_getValue('gemini_api_key');
                 if (!apiKey) {
-                    apiKey = prompt('אנא הזן את מפתח ה-API האישי שלך ל-Gemini:');
-                    if (!apiKey) return;
-                    GM_setValue('gemini_api_key', apiKey.trim());
+                    alert('אנא לחץ על החץ הקטן ליד כפתור הקסם והגדר את מפתח ה-API שלך.');
+                    popup.style.display = 'block';
+                    return;
                 }
 
                 const mode = GM_getValue('gemini_mode', 'strict');
                 const speed = GM_getValue('gemini_speed', 'fast');
                 
                 const temperature = mode === 'strict' ? 0.1 : 0.3;
-                const modelName = speed === 'fast' ? 'gemini-2.5-flash' : 'gemini-2.5-flash';
 
                 aiBtn.style.opacity = '0.5';
 
@@ -149,8 +208,6 @@ ${originalText}`;
                 }
             });
 
-            wrapper.appendChild(aiBtn);
-            wrapper.appendChild(dropdownBtn);
             toolbar.insertBefore(wrapper, referenceNode);
         });
     }
