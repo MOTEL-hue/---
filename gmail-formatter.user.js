@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      1.6
-// @description  הוספת כפתור עיצוב AI לסרגל הכלים של כתיבת מייל ב-Gmail (השימוש מחייב מפתח API אישי)
+// @version      1.7
+// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail (השימוש מחייב מפתח API אישי)
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/מוטל-גוון/מעצב-ג'ימייל-ג'מיני/main/gmail-formatter.user.js
 // @downloadURL  https://raw.githubusercontent.com/מוטל-גוון/מעצב-ג'ימייל-ג'מיני/main/gmail-formatter.user.js
@@ -61,14 +61,14 @@
 
                 aiBtn.style.opacity = '0.5';
 
-                const promptText = `עצב את טקסט האימייל הבא כך שיהיה נעים, מסודר וקריא.
-השתמש בפסקאות נקיות ובהדגשות עדינות (<b>) למילים מרכזיות במידת הצורך.
+                const promptText = `עצב ושפר את טקסט האימייל הבא כך שיראה מקצועי, מנוסח ומעוצב על ידי אנשי מקצוע.
+מותר לך לשפר את הניסוח, לתקן שגיאות כתיב ולשדרג את זרימת הטקסט בצורה חלקה ותקינה.
+השתמש בכלים עיצוביים מתאימים ב-HTML כגון כותרות, הדגשות (<b>), שינויי גדלים עדינים או רשימות במידת הצורך כדי שהאימייל יראה מרשים ונעים לעין.
 חובה להקפיד: 
-1. אסור לשנות או להוסיף מילים מתוכן הטקסט המקורי.
-2. אסור להכניס את הפלט לתוך תיבת קוד, אסור לייצר רקע אפור או מסגרת כלשהי.
-3. החזר אך ורק את קוד ה-HTML הנקי של הטקסט עצמו.
+1. אסור להכניס את הפלט לתוך תיבת קוד (Code Block), אסור לייצר רקע אפור, מסגרת או מעטפות עיצוביות חיצוניות. הטקסט צריך להיראות טבעי לגמרי בתוך גוף המייל.
+2. החזר אך ורק את קוד ה-HTML הנקי של הטקסט עצמו.
 
-הטקסט לעיצוב:
+הטקסט לעיצוב ושדרוג:
 ${originalText}`;
 
                 try {
@@ -77,7 +77,7 @@ ${originalText}`;
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: promptText }] }],
-                            generationConfig: { temperature: 0.1 }
+                            generationConfig: { temperature: 0.3 }
                         })
                     });
 
