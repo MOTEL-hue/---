@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.9
 // @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail (השימוש מחייב מפתח API אישי)
 // @match        https://mail.google.com/*
+// @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
+// @downloadURL  https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-end
@@ -16,7 +18,7 @@
         const toolbars = document.querySelectorAll('table.IZ td, div.n1');
         
         toolbars.forEach(toolbar => {
-            if (toolbar.querySelector('.gemini-mail-wrapper')) return;
+            if (toolbar.querySelector('.gemini-mail-wrapper'))return;
 
             const referenceNode = toolbar.querySelector('div.J-J5-Ji') || toolbar.firstChild;
             if (!referenceNode) return;
@@ -59,27 +61,27 @@
 
                 aiBtn.style.opacity = '0.5';
 
-                const promptText = `עצב ושפר את טקסט האימייל הבא בסגנון של מסמך או הצעת מחיר מקצועית ומסודרת מאוד, בדיוק כמו בדוגמה שבה יש שורות מפתח מודגשות בבירור, רווחים נקיים והיררכיה בולטת.
-הנחיות עיצוב:
-1. הפוך כותרות או שורות מפתח למודגשות (<b>) וברורות.
-2. דאג למבנה שורות נקי ומרווח (שימוש ב-<br> או פסקאות) כך שכל נתון או שורה יעמדו בפני עצמם בצורה מסודרת וקריאה לעין (למשל: תאריך, מיקום, מחיר וכדומה יופיעו במבנה של שורות נפרדות עם מפתחות מודגשים).
-3. מותר לשפר מעט ניסוח או לתקן שגיאות כתיב כדי שזה יישמע מקצועי לחלוטין.
-4. חובה להקפיד: אסור להכניס את הפלט לתוך תיבת קוד, אסור לייצר רקע אפור או מסגרת. החזר אך ורק את קוד ה-HTML הנקי של הטקסט.
+                const promptText = `תפקידך לעצב ולסדר את טקסט האימייל הבא מבלי לשנות את המשמעות או להמציא פרטים חדשים שלא היו בטקסט המקורי.
+הנחיות מחייבות:
+1. שמור על כל העובדות, הנתונים והתוכן המקורי שכתב המשתמש. אסור להמציא מידע או להוסיף סעיפים שלא קיימים בטקסט.
+2. מותר ורצוי לתקן שגיאות כתיב, ללטש מעט את הניסוח שיישמע רהוט, ולסדר את הטקסט בצורה נקייה ומקצועית (כמו הוספת הדגשות ב-<b> לכותרות ומפתחות מפתח, ורווחים נקיים בין השורות).
+3. אסור להכניס את הפלט לתוך תיבת קוד, ואסור לייצר רקע אפור או מסגרת. החזר אך ורק את קוד ה-HTML הנקי.
 
-הטקסט לעיצוב ושדרוג:
+הטקסט לעיצוב בלבד:
 ${originalText}`;
 
                 try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+                    const response = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+                    const apiResponse = await fetch(response, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: promptText }] }],
-                            generationConfig: { temperature: 0.2 }
+                            generationConfig: { temperature: 0.1 }
                         })
                     });
 
-                    const data = await response.json();
+                    const data = await apiResponse.json();
                     if (data.candidates && data.candidates[0].content.parts[0].text) {
                         let aiResult = data.candidates[0].content.parts[0].text;
                         aiResult = aiResult.replace(/^```(html)?\n?/i, '').replace(/\n?```$/i, '').trim();
