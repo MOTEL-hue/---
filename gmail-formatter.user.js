@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      2.4
-// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל שמירה על קישורים ותמונות
+// @version      2.5
+// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל עיצוב שיווקי ושמירה על קישורים ותמונות
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
 // @downloadURL  https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
@@ -54,9 +54,10 @@
                     <input type="password" class="api-input" style="width: 100%; padding: 4px; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box;" placeholder="הכנס מפתח חדש">
                 </div>
                 <div style="margin-bottom: 8px;">
-                    <label style="display: block; margin-bottom: 2px; color: #5f6368;">רמת דיוק:</label>
+                    <label style="display: block; margin-bottom: 2px; color: #5f6368;">סגנון עיצוב:</label>
                     <select class="mode-select" style="width: 100%; padding: 4px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
                         <option value="strict">מדויק וצמוד למקור (קפדני)</option>
+                        <option value="marketing">שיווקי ומעוצב (כמו בדוגמאות)</option>
                         <option value="creative">משוחרר ויצירתי יותר</option>
                     </select>
                 </div>
@@ -146,7 +147,7 @@
                 }
 
                 const mode = GM_getValue('gemini_mode', 'strict');
-                const temperature = mode === 'strict' ? 0.1 : 0.3;
+                const temperature = mode === 'creative' ? 0.3 : 0.1;
 
                 aiBtn.style.opacity = '0.5';
 
@@ -160,6 +161,16 @@
 4. אל תכניס את הפלט לתוך תיבת קוד ואל תייצר רקע אפור. החזר אך ורק את קוד ה-HTML המעוצב.
 
 תוכן ה-HTML לעיצוב ושמירה על רכיבים:
+${currentHtml}`;
+                } else if (mode === 'marketing') {
+                    promptText = `תפקידך לעצב את קוד ה-HTML של האימייל בסגנון שיווקי, מרשים וקליט המזכיר מגזין דיגיטלי או ניוזלטר מקצועי (בדומה לדוגמאות המכילות כותרות בולטות, פסקאות מרווחות, והנעה לפעולה בצורה מושכת).
+הנחיות מחייבות:
+1. שמור לחלוטין ובמדויק על כל הקישורים (תגיות <a>) והתמונות (תגיות <img>) המקוריות מבלי לשנות את כתובות ה-href או ה-src שלהם ומבלי למחוק אותם.
+2. סדר את הפסקאות בצורה זורמת, הוסף הדגשות (<b>) לכותרות או לנקודות מפתח מרכזיות כדי למשוך את עין הקורא.
+3. שמור על תוכן הליבה של הטקסט המקורי אך שפר את הניסוח שיהיה רהוט, שיווקי ומזמין לקריאה.
+4. אל תכניס את הפלט לתוך תיבת קוד ואל תייצר רקע אפור. החזר אך ורק את קוד ה-HTML המעוצב.
+
+תוכן ה-HTML לעיצוב שיווקי:
 ${currentHtml}`;
                 } else {
                     promptText = `עצב ושפר את קוד ה-HTML של האימייל הבא בסגנון מקצועי ומסודר.
