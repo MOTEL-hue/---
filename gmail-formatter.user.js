@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      2.2
-// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל חלון הגדרות מובנה ומוצמד
+// @version      2.4
+// @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל שמירה על קישורים ותמונות
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
 // @downloadURL  https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
@@ -27,7 +27,6 @@
             wrapper.className = 'J-J5-Ji gemini-mail-wrapper';
             wrapper.style.cssText = 'display: inline-block; position: relative; vertical-align: middle; display: inline-flex; align-items: center;';
 
-            // כפתור הקסם המרכזי
             const aiBtn = document.createElement('div');
             aiBtn.style.cssText = 'display: inline-block; cursor: pointer; padding: 0 4px; vertical-align: middle;';
             aiBtn.title = 'עיצוב אימייל אוטומטי באמצעות AI';
@@ -37,13 +36,11 @@
                 </svg>
             </div>`;
 
-            // חץ קטן לפתיחת חלון ההגדרות המוצמד
             const dropdownBtn = document.createElement('span');
             dropdownBtn.innerHTML = '▾';
             dropdownBtn.title = 'הגדרות תוסף';
             dropdownBtn.style.cssText = 'cursor: pointer; font-size: 10px; color: #5f6368; padding: 0 3px; vertical-align: middle; user-select: none; opacity: 0.7;';
 
-            // יצירת חלון ההגדרות המוצמד (Popup)
             const popup = document.createElement('div');
             popup.style.cssText = 'display: none; position: absolute; bottom: 30px; right: 0; background: #ffffff; border: 1px solid #dadce0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px; padding: 12px; z-index: 9999; width: 240px; font-family: Arial, sans-serif; font-size: 12px; color: #3c4043; text-align: right; direction: rtl;';
             
@@ -77,14 +74,12 @@
             wrapper.appendChild(dropdownBtn);
             wrapper.appendChild(popup);
 
-            // פתיחה/סגירה של החלון בלחיצה על החץ
             dropdownBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
                 const isVisible = popup.style.display === 'block';
                 if (!isVisible) {
-                    // טעינת הנתונים הקיימים לתוך השדות לפני הפתיחה
                     popup.querySelector('.api-input').value = GM_getValue('gemini_api_key', '');
                     popup.querySelector('.mode-select').value = GM_getValue('gemini_mode', 'strict');
                     popup.querySelector('.speed-select').value = GM_getValue('gemini_speed', 'fast');
@@ -94,14 +89,12 @@
                 }
             });
 
-            // סגירת החלון בלחיצה על ה-X
             popup.querySelector('.close-popup').addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 popup.style.display = 'none';
             });
 
-            // שמירת ההגדרות מתוך החלון
             popup.querySelector('.save-settings').addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -120,14 +113,12 @@
                 alert('ההגדרות נשמרו בהצלחה!');
             });
 
-            // סגירת החלון בלחיצה מחוץ לו
             document.addEventListener('click', (e) => {
                 if (!wrapper.contains(e.target)) {
                     popup.style.display = 'none';
                 }
             });
 
-            // הפעלת העיצוב בלחיצה על כפתור הקסם
             aiBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -141,8 +132,8 @@
                     return;
                 }
 
-                const originalText = editableArea.innerText.trim();
-                if (!originalText) {
+                const currentHtml = editableArea.innerHTML.trim();
+                if (!currentHtml) {
                     alert('אנא כתוב קודם תוכן כלשהו בגוף המייל.');
                     return;
                 }
@@ -155,29 +146,28 @@
                 }
 
                 const mode = GM_getValue('gemini_mode', 'strict');
-                const speed = GM_getValue('gemini_speed', 'fast');
-                
                 const temperature = mode === 'strict' ? 0.1 : 0.3;
 
                 aiBtn.style.opacity = '0.5';
 
                 let promptText = '';
                 if (mode === 'strict') {
-                    promptText = `תפקידך לעצב ולסדר את טקסט האימייל הבא מבלי לשנות את המשמעות או להמציא פרטים חדשים שלא היו בטקסט המקורי.
+                    promptText = `תפקידך לעצב ולסדר את קוד ה-HTML של האימייל הבא מבלי לשנות את המשמעות, ומבלי לגעת או למחוק תמונות (<img>) או קישורים (<a>) קיימים.
 הנחיות מחייבות:
-1. שמור על כל העובדות והנתונים המקוריים. אסור להמציא מידע חדש.
-2. תקן שגיאות כתיב, ללטש מעט ניסוח וסדר את הטקסט בצורה נקייה ומקצועית עם הדגשות (<b>) ורווחים.
-3. אסור להכניס את הפלט לתוך תיבת קוד, ואסור לייצר רקע אפור או מסגרת. החזר אך ורק את קוד ה-HTML הנקי.
+1. שמור לחלוטין על כל הקישורים (תגיות <a>) והתמונות (תגיות <img>) המקוריות שקיימות בטקסט מבלי לשנות את הכתובת שלהם (href או src).
+2. שמור על כל העובדות והנתונים המקוריים, אל תמציא מידע חדש.
+3. תקן שגיאות כתיב, ללטש מעט ניסוח וסדר את הטקסט בצורה נקייה ומקצועית עם הדגשות (<b>) ורווחים נקיים.
+4. אל תכניס את הפלט לתוך תיבת קוד ואל תייצר רקע אפור. החזר אך ורק את קוד ה-HTML המעוצב.
 
-הטקסט לעיצוב בלבד:
-${originalText}`;
+תוכן ה-HTML לעיצוב ושמירה על רכיבים:
+${currentHtml}`;
                 } else {
-                    promptText = `עצב ושפר את טקסט האימייל הבא בסגנון של הצעת מחיר או מסמך מקצועי ומסודר, עם כותרות מודגשות ורווחים נקיים.
-מותר לשפר ניסוח ותיקון שגיאות בצורה זורמת יותר.
-חובה להקפיד: אסור להכניס את הפלט לתוך תיבת קוד, ואסור לייצר רקע אפור או מסגרת. החזר אך ורק את קוד ה-HTML הנקי.
+                    promptText = `עצב ושפר את קוד ה-HTML של האימייל הבא בסגנון מקצועי ומסודר.
+חובה לשמור על כל התמונות (<img>) והקישורים (<a>) המקוריים בשלמותם מבלי לפגוע בהם או לשנות את כתובתם.
+אל תכניס את הפלט לתוך תיבת קוד ואל תייצר רקע אפור. החזר אך ורק את קוד ה-HTML המעוצב.
 
-הטקסט לעיצוב ושדרוג:
-${originalText}`;
+תוכן ה-HTML לעיצוב ושדרוג:
+${currentHtml}`;
                 }
 
                 try {
@@ -202,7 +192,9 @@ ${originalText}`;
                     }
                 } catch (error) {
                     alert('שגיאה: ' + error.message);
-                    if (error.message.includes('API key')) GM_setValue('gemini_api_key', '');
+                    if (error.message.includes('API key')) {
+                        GM_setValue('gemini_api_key', '');
+                    }
                 } finally {
                     aiBtn.style.opacity = '1';
                 }
