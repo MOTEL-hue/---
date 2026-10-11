@@ -77,8 +77,17 @@ s=cut(s,"function printInv(id) {","/* ---------- הזנה מהירה",'''functio
   const i0 = live('invoices').find(x => x.id === id), b = live('bizs').find(x => x.id === i0.biz) || {}; let i = i0;
   if (!i.num) { i = { ...i, num: Math.max(0, ...live('invoices').filter(x => x.biz === i.biz && x.kind === i.kind).map(x => +x.num || 0)) + 1 }; put('invoices', i); }
   const txt = `${i.kind} מס' ${i.num}\\n${b.name || ''} ${b.taxid ? 'עוסק מס\\' ' + b.taxid : ''}\\nתאריך: ${i.date.split('-').reverse().join('/')}\\nלכבוד: ${i.client}\\n${i.desc}\\nסה"כ: ${fmt(i.amount)}`;
-  const m = modal(`<div style="background:#fff;color:#000;padding:16px;border-radius:10px"><h2>${esc(i.kind)} מס' ${i.num}</h2><p><b>${esc(b.name || '')}</b><br>${esc(b.taxid ? 'עוסק מס\\' ' + b.taxid : '')} ${esc(b.phone || '')}<br>${esc(b.address || '')}</p><p>תאריך: ${i.date.split('-').reverse().join('/')}<br>לכבוד: <b>${esc(i.client)}</b></p><table style="color:#000"><tr><th>תיאור</th><th>סכום</th></tr><tr><td>${esc(i.desc)}</td><td>${fmt(i.amount)}</td></tr><tr class="tot" style="color:#000"><td>סה"כ</td><td>${fmt(i.amount)}</td></tr></table></div><div class="row" style="margin-top:12px"><button class="b" id="cp">העתקת הטקסט</button><button class="b sec" id="cl">סגירה</button></div>`);
+  const m = modal(`<div style="background:#fff;color:#000;padding:16px;border-radius:10px"><h2>${esc(i.kind)} מס' ${i.num}</h2><p><b>${esc(b.name || '')}</b><br>${esc(b.taxid ? 'עוסק מס\\' ' + b.taxid : '')} ${esc(b.phone || '')}<br>${esc(b.address || '')}</p><p>תאריך: ${i.date.split('-').reverse().join('/')}<br>לכבוד: <b>${esc(i.client)}</b></p><table style="color:#000"><tr><th>תיאור</th><th>סכום</th></tr><tr><td>${esc(i.desc)}</td><td>${fmt(i.amount)}</td></tr><tr class="tot" style="color:#000"><td>סה"כ</td><td>${fmt(i.amount)}</td></tr></table></div>${i.sumit ? `<p class="good">הופק בסמיט: מספר ${esc(i.sumit.number)}${i.sumit.draft ? ' (טיוטה)' : ''}${i.sumit.url ? ` · <a href="${esc(i.sumit.url)}" target="_blank" rel="noopener">הורדה</a>` : ''}</p>` : ''}<div class="row" style="margin-top:12px">${!i.sumit && window.BUDGET_SUMIT && window.BUDGET_SUMIT.includes(i.kind) ? '<button class="b" id="sm">הפקה בסמיט</button>' : ''}<button class="b sec" id="cp">העתקת הטקסט</button><button class="b sec" id="cl">סגירה</button></div>`);
   m.querySelector('#cl').onclick = () => m.remove();
+  const sm = m.querySelector('#sm');
+  if (sm) sm.onclick = async () => {
+    sm.disabled = true; sm.textContent = 'מפיק…';
+    try {
+      const r = await fetch(API + 'sumit', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() }, body: JSON.stringify({ kind: i.kind, client: i.client, desc: i.desc, amount: i.amount, date: i.date }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'ההפקה נכשלה');
+      put('invoices', { ...i, sumit: { number: j.number, id: j.id, url: j.url, draft: j.draft } }); m.remove(); toast('הופק בסמיט' + (j.draft ? ' (טיוטה)' : '')); render();
+    } catch (e) { sm.disabled = false; sm.textContent = 'הפקה בסמיט'; toast(e.message || 'ההפקה נכשלה'); }
+  };
   m.querySelector('#cp').onclick = () => navigator.clipboard.writeText(txt).then(() => toast('הועתק'), () => toast('אפשר לצלם מסך'));
 }
 

@@ -89,7 +89,7 @@ const SCHEMA = {
   bizs: [{ k: 'name', l: 'שם העסק', t: 'text' }, { k: 'taxid', l: 'מספר עוסק', t: 'text' }, { k: 'phone', l: 'טלפון', t: 'text' }, { k: 'address', l: 'כתובת', t: 'text' }],
   orders: [{ k: 'client', l: 'לקוח / אירוע', t: 'text' }, { k: 'date', l: 'תאריך', t: 'date' }, { k: 'when', l: 'מועד (טקסט חופשי)', t: 'text' }, { k: 'year', l: 'שנה', t: 'text' }, { k: 'amount', l: 'תשלום מהלקוח', t: 'number' }, { k: 'cost', l: 'הוצאות על ההזמנה', t: 'number' }, { k: 'paid', l: 'שולם', t: 'check' }, { k: 'note', l: 'הערות', t: 'text' }],
   bizExp: [{ k: 'item', l: 'מוצר / הוצאה', t: 'text' }, { k: 'date', l: 'תאריך', t: 'date' }, { k: 'when', l: 'מועד (טקסט חופשי)', t: 'text' }, { k: 'year', l: 'שנה', t: 'text' }, { k: 'amount', l: 'סכום', t: 'number' }],
-  invoices: [{ k: 'kind', l: 'סוג מסמך', t: 'select', o: { 'חשבונית': 'חשבונית', 'קבלה': 'קבלה', 'חשבונית-קבלה': 'חשבונית-קבלה' } }, { k: 'client', l: 'לקוח', t: 'text' }, { k: 'date', l: 'תאריך', t: 'date' }, { k: 'desc', l: 'תיאור', t: 'text' }, { k: 'amount', l: 'סכום', t: 'number' }],
+  invoices: [{ k: 'kind', l: 'סוג מסמך', t: 'select', o: { 'חשבון עסקה': 'חשבון עסקה', 'חשבונית': 'חשבונית', 'קבלה': 'קבלה', 'חשבונית-קבלה': 'חשבונית-קבלה' } }, { k: 'client', l: 'לקוח', t: 'text' }, { k: 'date', l: 'תאריך', t: 'date' }, { k: 'desc', l: 'תיאור', t: 'text' }, { k: 'amount', l: 'סכום', t: 'number' }],
 };
 
 /* ---------- ממשק עזר ---------- */
@@ -283,7 +283,7 @@ function importAny(j) {
 /* ---------- הפקת מסמך ---------- */
 function makeInvoice(orderId) {
   const o = live('orders').find(x => x.id === orderId), bz = live('bizs').find(b => b.id === curBiz);
-  const m = modal(`<h2>הפקת מסמך</h2><label>סוג</label><select id="ik"><option>חשבונית</option><option>קבלה</option><option>חשבונית-קבלה</option></select><label>לקוח</label><input id="ic" value="${esc(o.client)}"><label>סכום</label><input id="ia" type="number" value="${o.amount || ''}"><label>תיאור</label><input id="id" value="${esc(o.note || 'תוכנית ציור בחול')}"><div class="row" style="margin-top:14px"><button class="b" id="ok">הפקה</button><button class="b sec" id="no">ביטול</button></div>`);
+  const m = modal(`<h2>הפקת מסמך</h2><label>סוג</label><select id="ik"><option>חשבון עסקה</option><option>חשבונית</option><option>קבלה</option><option>חשבונית-קבלה</option></select><label>לקוח</label><input id="ic" value="${esc(o.client)}"><label>סכום</label><input id="ia" type="number" value="${o.amount || ''}"><label>תיאור</label><input id="id" value="${esc(o.note || 'תוכנית ציור בחול')}"><div class="row" style="margin-top:14px"><button class="b" id="ok">הפקה</button><button class="b sec" id="no">ביטול</button></div>`);
   m.querySelector('#no').onclick = () => m.remove();
   m.querySelector('#ok').onclick = () => {
     const kind = m.querySelector('#ik').value, mx = Math.max(0, ...live('invoices').filter(i => i.biz === curBiz && i.kind === kind).map(i => +i.num || 0));
