@@ -32,7 +32,7 @@ const KEY = 'budget.state.v1';
 let S = load();
 function blank() {
   const d = {}; COLL.forEach(c => d[c] = []);
-  return { v: 1, settings: { family: '', calendar: 'heb', tithe: 10, users: [], sync: { url: '', key: '', code: '' }, last: 0 }, data: d };
+  return { v: 1, settings: { family: '', calendar: 'heb', tithe: 10, users: [], sync: { url: '', key: '', email: '' }, last: 0 }, data: d };
 }
 function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s?.data) { COLL.forEach(c => s.data[c] ||= []); return s; } } catch (e) { } return blank(); }
 let saveT; function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('אין מקום לשמור במכשיר'); } scheduleSync(); }, 150); }
@@ -41,22 +41,32 @@ function put(c, item) { const a = S.data[c]; item.u = Date.now(); const i = a.fi
 function remove(c, id) { const x = S.data[c].find(x => x.id === id); if (x) { x.del = true; x.u = Date.now(); save(); } }
 
 /* ---------- סנכרון (Supabase) — מיזוג לפי פריט, האחרון מנצח ---------- */
-let syncT, syncing = false;
+let syncT, syncing = false, TOK = null;
 function scheduleSync() { clearTimeout(syncT); syncT = setTimeout(sync, 2500); }
 function merge(local, remote) {
   COLL.forEach(c => { const m = new Map(); [...(local[c] || []), ...(remote[c] || [])].forEach(x => { const o = m.get(x.id); if (!o || (x.u || 0) > (o.u || 0)) m.set(x.id, x); }); local[c] = [...m.values()]; });
 }
+/* כניסה לחשבון בענן (Supabase Auth). הנתונים נשמרים לפי המשתמש ורק הוא קורא אותם (RLS). */
+async function cloudLogin(email, pass, signup) {
+  const { url, key } = S.settings.sync;
+  const r = await fetch(`${url}/auth/v1/${signup ? 'signup' : 'token?grant_type=password'}`, { method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: pass }) });
+  const j = await r.json(); if (!r.ok || !j.access_token) throw new Error(j.msg || j.error_description || 'נכשל');
+  TOK = j.access_token; try { sessionStorage.setItem('budget.tok', TOK); } catch (e) { } return TOK;
+}
 async function sync(manual) {
-  const { url, key, code } = S.settings.sync; if (!url || !key || !code || !navigator.onLine || syncing) { if (manual) toast('חסרות הגדרות סנכרון או אין אינטרנט'); return; }
-  syncing = true; const H = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+  const { url, key } = S.settings.sync; if (!url || !key || !navigator.onLine || syncing) { if (manual) toast('חסרות הגדרות סנכרון או אין אינטרנט'); return; }
+  if (!TOK) try { TOK = sessionStorage.getItem('budget.tok'); } catch (e) { }
+  if (!TOK) { if (manual) toast('צריך להתחבר לענן'); return; }
+  syncing = true; const H = { apikey: key, Authorization: 'Bearer ' + TOK, 'Content-Type': 'application/json' };
   try {
-    const r = await fetch(`${url}/rest/v1/snapshots?family=eq.${encodeURIComponent(code)}&select=data`, { headers: H });
+    const r = await fetch(`${url}/rest/v1/snapshots?select=data`, { headers: H });
+    if (r.status === 401) { TOK = null; try { sessionStorage.removeItem('budget.tok'); } catch (e) { } throw 0; }
     if (!r.ok) throw 0; const rows = await r.json();
-    if (rows[0]?.data) { merge(S.data, rows[0].data); if (rows[0].data.settings) S.settings.users = S.settings.users.length ? S.settings.users : rows[0].data.settings.users || []; }
-    const body = { family: code, data: { ...S.data, settings: { users: S.settings.users } }, updated_at: new Date().toISOString() };
-    const p = await fetch(`${url}/rest/v1/snapshots`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(body) });
+    if (rows[0]?.data) { merge(S.data, rows[0].data); const ru = rows[0].data.settings?.users; if (ru?.length) { const have = new Set(S.settings.users.map(u => u.name)); ru.forEach(u => { if (!have.has(u.name)) S.settings.users.push(u); }); } }
+    const body = { data: { ...S.data, settings: { users: S.settings.users } }, updated_at: new Date().toISOString() };
+    const p = await fetch(`${url}/rest/v1/snapshots?on_conflict=user_id`, { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(body) });
     if (!p.ok) throw 0; S.settings.last = Date.now(); localStorage.setItem(KEY, JSON.stringify(S)); if (manual) toast('הסנכרון הצליח'); render();
-  } catch (e) { if (manual) toast('הסנכרון נכשל, בדוק כתובת ומפתח'); }
+  } catch (e) { if (manual) toast('הסנכרון נכשל. בדוק כתובת, מפתח והתחברות'); }
   syncing = false;
 }
 addEventListener('online', () => sync());
@@ -246,8 +256,8 @@ V.more = () => {
   <label>ספירת שנים</label><select id="s-cal"><option value="heb" ${st.calendar === 'heb' ? 'selected' : ''}>עברית (תשפ"ז)</option><option value="greg" ${st.calendar === 'greg' ? 'selected' : ''}>לועזית (2026)</option></select>
   <label>אחוז מעשר</label><input id="s-tithe" type="number" value="${st.tithe}"><div class="row" style="margin-top:10px"><button class="b" id="s-save">שמירה</button></div></div>
   ${ME.role === 'admin' ? `<div class="card"><h2>משתמשים והרשאות</h2>${st.users.map((u, i) => `<div class="row"><span class="sp">${esc(u.name)} — ${ROLES[u.role]}</span>${u.name !== ME.name ? `<button class="ic" data-deluser="${i}">🗑️</button>` : ''}</div>`).join('')}<button class="b sec" id="adduser">＋ משתמש</button><p class="mut">הסיסמה כרגע שמורה במכשיר בלבד. עם חיבור לשרת היא תסתנכרן, אך זו הגנה בסיסית ולא הצפנה מלאה.</p></div>
-  <div class="card"><h2>סנכרון לענן</h2><label>כתובת השרת (Supabase)</label><input id="y-url" value="${esc(sy.url)}" placeholder="https://xxxx.supabase.co"><label>מפתח (anon)</label><input id="y-key" value="${esc(sy.key)}"><label>קוד משפחה (אותו קוד בכל המכשירים)</label><input id="y-code" value="${esc(sy.code)}">
-  <div class="row" style="margin-top:10px"><button class="b" id="y-save">שמירה וסנכרון</button></div><p class="mut">סנכרון אחרון: ${st.last ? new Date(st.last).toLocaleString('he-IL') : 'עוד לא'}. הוראות הקמה בקובץ README.</p></div>` : ''}
+  <div class="card"><h2>סנכרון לענן</h2><label>כתובת הפרויקט (Supabase)</label><input id="y-url" value="${esc(sy.url)}" placeholder="https://xxxx.supabase.co"><label>מפתח (anon)</label><input id="y-key" value="${esc(sy.key)}"><label>אימייל לחשבון הענן</label><input id="y-mail" type="email" value="${esc(sy.email || '')}"><label>סיסמה לחשבון הענן</label><input id="y-pass" type="password">
+  <div class="row" style="margin-top:10px"><button class="b" id="y-in">התחברות וסנכרון</button><button class="b sec" id="y-up">חשבון חדש</button></div><p class="mut">סנכרון אחרון: ${st.last ? new Date(st.last).toLocaleString('he-IL') : 'עוד לא'}. כל מי שמתחבר עם אותו אימייל רואה אותם נתונים. הוראות הקמה בקובץ README.</p></div>` : ''}
   <div class="card"><h2>נתונים</h2><div class="row"><button class="b sec" id="exp">גיבוי לקובץ</button><label class="btn sec" style="margin:0;background:var(--pri2);color:var(--pri)">ייבוא מקובץ<input type="file" id="imp" accept=".json" hidden></label></div>
   <p class="mut">ייבוא מוסיף את הנתונים לקיימים (לא מוחק). קובץ הנתונים מהאקסל מגיע כקובץ נפרד.</p></div>`;
 };
@@ -351,7 +361,8 @@ function bind() {
   $('#mpick')?.addEventListener('change', e => { curMonth = e.target.value; render(); });
   $('#logout')?.addEventListener('click', () => { ME = null; try { sessionStorage.removeItem('budget.me'); } catch (e) { } render(); });
   $('#s-save')?.addEventListener('click', () => { const s = S.settings; s.family = $('#s-fam').value; s.calendar = $('#s-cal').value; s.tithe = +$('#s-tithe').value || 10; curYear = null; save(); render(); toast('נשמר'); });
-  $('#y-save')?.addEventListener('click', () => { S.settings.sync = { url: $('#y-url').value.trim().replace(/\/$/, ''), key: $('#y-key').value.trim(), code: $('#y-code').value.trim() }; save(); sync(true); });
+  const cl = signup => async () => { S.settings.sync = { url: $('#y-url').value.trim().replace(/\/$/, ''), key: $('#y-key').value.trim(), email: $('#y-mail').value.trim() }; save(); try { await cloudLogin(S.settings.sync.email, $('#y-pass').value, signup); toast(signup ? 'החשבון נוצר (ייתכן שצריך לאשר במייל)' : 'מחובר'); sync(true); } catch (e) { toast('ההתחברות נכשלה: ' + e.message); } };
+  $('#y-in')?.addEventListener('click', cl(false)); $('#y-up')?.addEventListener('click', cl(true));
   $('#adduser')?.addEventListener('click', () => {
     const m = modal(`<h2>משתמש חדש</h2><label>שם</label><input id="u-n"><label>סיסמה</label><input id="u-p" type="password"><label>הרשאה</label><select id="u-r">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${k === 'home' ? 'selected' : ''}>${v}</option>`).join('')}</select><div class="row" style="margin-top:14px"><button class="b" id="ok">הוספה</button></div>`);
     m.querySelector('#ok').onclick = async () => { const n = m.querySelector('#u-n').value.trim(), p = m.querySelector('#u-p').value; if (!n || !p) return; S.settings.users.push({ name: n, hash: await hash(p), role: m.querySelector('#u-r').value }); save(); m.remove(); render(); };

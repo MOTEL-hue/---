@@ -11,17 +11,21 @@
 - הזנה מהירה בכפתור הצהוב.
 - משתמשים עם הרשאות: מנהל / בית בלבד / צפייה בלבד.
 
-## סנכרון בין מכשירים (שרת חינמי ב-Supabase)
+## סנכרון בין מכשירים (Supabase חינמי, עם כניסה אישית)
 1. פותחים חשבון חינמי ב-supabase.com ויוצרים פרויקט.
 2. ב-SQL Editor מריצים:
 ```sql
-create table snapshots (family text primary key, data jsonb, updated_at timestamptz);
+create table snapshots (
+  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
+  data jsonb, updated_at timestamptz default now());
 alter table snapshots enable row level security;
-create policy "family access" on snapshots for all using (true) with check (true);
+create policy "own data" on snapshots for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
 ```
-3. בתוכנה: עוד ← סנכרון לענן. מדביקים את כתובת הפרויקט ואת המפתח (anon), ובוחרים קוד משפחה ארוך וסודי, אותו קוד בכל המכשירים.
+3. ב-Authentication ← Providers ← Email: אפשר להשבית את אישור המייל אם רוצים כניסה מיידית.
+4. בתוכנה: עוד ← סנכרון לענן. מדביקים כתובת פרויקט ומפתח anon, ובוחרים "חשבון חדש" עם אימייל וסיסמה. בכל מכשיר נוסף נכנסים עם אותם פרטים.
 
-חשוב: ההגנה כאן היא על סמך קוד המשפחה הסודי. לפני שמכניסים נתונים אמיתיים לענן כדאי להקשיח (התחברות אמיתית לפי משתמש).
+הנתונים נשמרים לפי המשתמש, ורק מי שמחובר אליו יכול לקרוא אותם.
 
 ## ייבוא מהאקסל
 `tools/extract.py` מחלץ את הנתונים מקובץ האקסל לקובץ JSON, ואותו מייבאים בתוכנה (עוד ← ייבוא מקובץ). קבצי הנתונים לא נשמרים בגיט.
