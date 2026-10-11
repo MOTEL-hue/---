@@ -335,7 +335,7 @@ function render() {
   const ys = years(); if (!curYear || !ys.includes(curYear)) curYear = ys[0];
   const vis = TABS.filter(t => ME.role === 'admin' || !['biz', 'debts'].includes(t[0]));
   if (!vis.find(t => t[0] === tab)) tab = 'home';
-  $('#app').innerHTML = `<header><h1>${esc(S.settings.family || 'תקציב המשפחה')}</h1>
+  $('#app').innerHTML = `<header><h1>${esc(S.settings.family || 'תקציב המשפחה')}</h1>${window.BUDGET_EXIT ? `<a href="${esc(window.BUDGET_EXIT[0])}" style="color:#fff">${esc(window.BUDGET_EXIT[1])}</a>` : ''}
     <select id="yr">${ys.map(y => `<option value="${y}" ${y === curYear ? 'selected' : ''}>${yearLabel(y)}</option>`).join('')}</select>
     <button id="cal" title="עברי / לועזי">${S.settings.calendar === 'heb' ? 'עברי' : 'לועזי'}</button></header>
     <main>${V[tab]()}</main>${canEdit() ? '<button class="fab" id="fab" title="הזנה מהירה">+</button>' : ''}
