@@ -1,20 +1,33 @@
-import openpyxl,json,sys,warnings
+import openpyxl,json,sys,warnings,re
 warnings.filterwarnings('ignore')
 wb=openpyxl.load_workbook(sys.argv[1],data_only=False)
 num=lambda v:isinstance(v,(int,float)) and not isinstance(v,bool)
 S=lambda v:str(v).strip() if v is not None else ''
 out={}
 # ---- עסק: ציור בחול
+# השנה של כל גוש נקבעת לפי שורת הסיכום שסוגרת אותו ("סה"כ תשפ"ו" בעמודה F), לא לפי כותרת בתחילתו:
+# רק הגושים הראשונים מתחילים בכותרת שנה.
 ws=wb['ציור בחול']
-orders=[];exps=[];year='לפני החתונה'
-for r in range(3,ws.max_row+1):
-    if r>400: break
+orders=[];exps=[];blk_o=[];blk_e=[]
+for r in range(3,min(ws.max_row,400)+1):
     a,b,c,d,e,f,g,h,i,j,k=[ws.cell(r,x).value for x in range(1,12)]
-    if S(a)=='אירוע' and h: year=S(h)
-    if S(a) and S(a)!='אירוע' and S(a)!='סה"כ' and num(b):
-        orders.append(dict(client=S(a),amount=b,cost=c if num(c) else 0,when=S(d),note=S(e),year=year,paid=bool(g)))
-    if S(j) and num(k) and '\\' not in S(j):
-        exps.append(dict(item=S(j),amount=k,when=S(i),year=year))
+    if S(a)=='סה"כ' or S(f).startswith('סה"כ'):
+        year=S(f).replace('סה"כ','').strip().split('\\')[0].strip() or 'לא ידוע'
+        for o in blk_o: o['year']=year
+        for o in blk_e: o['year']=o.pop('_y',None) or year
+        orders+=blk_o; exps+=blk_e; blk_o=[]; blk_e=[]
+        continue
+    if S(a)=='אירוע': continue
+    if S(a) and num(b):
+        gs=S(g); paid='V' in gs; part=''.join(ch for ch in gs if ch.isdigit()) if not paid and gs else ''
+        note=S(e)+(' · שולם חלקית '+part if part else '')
+        blk_o.append(dict(client=S(a),amount=b,cost=c if num(c) else 0,when=S(d),pay=S(f),note=note.strip(' ·'),paid=paid))
+    name=S(j) or S(i)  # בשורה אחת ("רואה חשבון") השם נמצא בעמודת התאריך
+    if name and num(k) and '\\' not in name and name!='סה"כ':
+        yr=S(i) if re.match(r'^תש[א-ת]"[א-ת]$',S(i)) else ''  # בגושים הראשונים לכל הוצאה יש שנה משלה בעמודה I
+        blk_e.append(dict(item=name,amount=k,when='' if not S(j) or yr else S(i),**({'_y':yr} if yr else {})))
+for o in blk_o+blk_e: o['year']=o.pop('_y',None) or 'לא ידוע'
+orders+=blk_o; exps+=blk_e
 out['orders']=orders;out['bizExpenses']=exps
 # ---- חובות
 ws=wb['חובות']

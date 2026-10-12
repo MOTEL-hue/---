@@ -66,7 +66,7 @@ s=cut(s,"V.more = () => {","/* ---------- ייבוא",'''V.more = () => {
   <div class="card"><h2>הגדרות</h2><label for="s-fam">שם המשפחה</label><input id="s-fam" value="${esc(st.family)}">
   <label for="s-cal">ספירת שנים</label><select id="s-cal"><option value="heb" ${st.calendar === 'heb' ? 'selected' : ''}>עברית (תשפ"ז)</option><option value="greg" ${st.calendar === 'greg' ? 'selected' : ''}>לועזית (2026)</option></select>
   <label for="s-tithe">אחוז מעשר</label><input id="s-tithe" type="number" value="${st.tithe}"><div class="row" style="margin-top:10px"><button class="b" id="s-save">שמירה</button></div></div>
-  ${canEdit() ? `<div class="card"><h2>ייבוא נתונים</h2><label class="btn" style="margin:0">בחירת קובץ<input type="file" id="imp" accept=".json" hidden></label><p class="mut">ייבוא מוסיף לנתונים הקיימים ולא מוחק. הנתונים נשמרים בחשבון שלך בלבד.</p></div>` : ''}`;
+  ${canEdit() ? `<div class="card"><h2>ייבוא נתונים</h2><label class="btn" style="margin:0">בחירת קובץ<input type="file" id="imp" accept=".json" hidden></label><p class="mut">ייבוא מוסיף לנתונים הקיימים ולא מוחק. הנתונים נשמרים בחשבון שלך בלבד.</p><button class="b red" id="wipe">מחיקת כל הנתונים</button><p class="mut">למחיקה לפני ייבוא מחדש. אי אפשר לשחזר.</p></div>` : ''}`;
 };
 
 ''')
