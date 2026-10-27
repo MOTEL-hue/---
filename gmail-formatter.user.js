@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      2.6
+// @version      2.7
 // @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל עיצוב שיווקי ושמירה על קישורים ותמונות
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
@@ -52,6 +52,23 @@
                 </svg>
             </div>`;
 
+            // ביטול: מחזיר את הטקסט שהיה לפני העיצוב האחרון (מופיע רק אחרי עיצוב)
+            const undoBtn = document.createElement('span');
+            undoBtn.textContent = '↶';
+            undoBtn.title = 'ביטול העיצוב - חזרה לטקסט המקורי';
+            undoBtn.setAttribute('role', 'button');
+            undoBtn.style.cssText = 'display: none; cursor: pointer; font-size: 16px; color: #5f6368; padding: 0 4px; vertical-align: middle; user-select: none;';
+            let undoState = null;
+            undoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!undoState) return;
+                undoState.area.innerHTML = undoState.html;
+                undoState.area.dispatchEvent(new Event('input', { bubbles: true }));
+                undoState = null;
+                undoBtn.style.display = 'none';
+            });
+
             const dropdownBtn = document.createElement('span');
             dropdownBtn.innerHTML = '▾';
             dropdownBtn.title = 'הגדרות תוסף';
@@ -88,6 +105,7 @@
             `;
 
             wrapper.appendChild(aiBtn);
+            wrapper.appendChild(undoBtn);
             wrapper.appendChild(dropdownBtn);
             wrapper.appendChild(popup);
 
@@ -213,7 +231,9 @@ ${currentHtml}`;
                     if (resultText) {
                         const aiResult = resultText.replace(/^```(html)?\n?/i, '').replace(/\n?```$/i, '').trim();
 
+                        undoState = { area: editableArea, html: currentHtml };
                         editableArea.innerHTML = cleanHtml(aiResult);
+                        undoBtn.style.display = 'inline-block';
                         editableArea.dispatchEvent(new Event('input', { bubbles: true }));
                     } else {
                         throw new Error(data.error?.message || 'שגיאה בעיבוד הנתונים.');
