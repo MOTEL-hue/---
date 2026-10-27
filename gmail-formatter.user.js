@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         מעצב אימיילים אוטומטי - Gmail Gemini
 // @namespace    http://tampermonkey.net/
-// @version      2.5
+// @version      2.6
 // @description  הוספת כפתור עיצוב AI מתקדם לסרגל הכלים של כתיבת מייל ב-Gmail כולל עיצוב שיווקי ושמירה על קישורים ותמונות
 // @match        https://mail.google.com/*
 // @updateURL    https://raw.githubusercontent.com/MOTEL-hue/gmail-formatter.user.js/main/gmail-formatter.user.js
@@ -13,6 +13,22 @@
 
 (function() {
     'use strict';
+
+    // תוצאת הבינה המלאכותית נכנסת לחלון הכתיבה; מוחקים ממנה כל מה שעלול להריץ קוד
+    // (התוכן המקורי של המייל, למשל מייל מצוטט, יכול לגרום למודל להחזיר קוד כזה)
+    function cleanHtml(html) {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        doc.querySelectorAll('script, style, iframe, object, embed, form, link, meta').forEach(el => el.remove());
+        doc.body.querySelectorAll('*').forEach(el => {
+            [...el.attributes].forEach(attr => {
+                const value = attr.value.trim().toLowerCase();
+                if (attr.name.startsWith('on') || ((attr.name === 'href' || attr.name === 'src') && value.startsWith('javascript:'))) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        return doc.body.innerHTML;
+    }
 
     function injectAiButton() {
         const toolbars = document.querySelectorAll('table.IZ td, div.n1');
@@ -182,9 +198,10 @@ ${currentHtml}`;
                 }
 
                 try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+                    // המפתח נשלח בכותרת ולא בכתובת, כדי שלא יישמר ביומנים ובהיסטוריה
+                    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
                         body: JSON.stringify({
                             contents: [{ parts: [{ text: promptText }] }],
                             generationConfig: { temperature: temperature }
@@ -192,11 +209,11 @@ ${currentHtml}`;
                     });
 
                     const data = await response.json();
-                    if (data.candidates && data.candidates[0].content.parts[0].text) {
-                        let aiResult = data.candidates[0].content.parts[0].text;
-                        aiResult = aiResult.replace(/^```(html)?\n?/i, '').replace(/\n?```$/i, '').trim();
+                    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (resultText) {
+                        const aiResult = resultText.replace(/^```(html)?\n?/i, '').replace(/\n?```$/i, '').trim();
 
-                        editableArea.innerHTML = aiResult;
+                        editableArea.innerHTML = cleanHtml(aiResult);
                         editableArea.dispatchEvent(new Event('input', { bubbles: true }));
                     } else {
                         throw new Error(data.error?.message || 'שגיאה בעיבוד הנתונים.');
@@ -215,8 +232,12 @@ ${currentHtml}`;
         });
     }
 
+    // Gmail משנה את הדף כל הזמן; בודקים לכל היותר פעם בחצי שנייה כדי לא להאט אותו
+    let pending = false;
     const observer = new MutationObserver(() => {
-        injectAiButton();
+        if (pending) return;
+        pending = true;
+        setTimeout(() => { pending = false; injectAiButton(); }, 500);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
